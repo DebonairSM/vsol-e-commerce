@@ -168,7 +168,7 @@ export const auth = betterAuth({
     }),
   ],
 
-  secret: process.env.AUTH_SECRET,
+  secret: process.env.BETTER_AUTH_SECRET || process.env.AUTH_SECRET,
 
   // Only include social providers if credentials are available
   socialProviders,
