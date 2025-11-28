@@ -158,7 +158,7 @@ export const auth = betterAuth({
           "/dashboard/billing?checkout_success=true&checkout_id={CHECKOUT_ID}",
       },
       client: polarClient,
-      createCustomerOnSignUp: true,
+      createCustomerOnSignUp: false,
       enableCustomerPortal: true,
       // Configure webhooks
       webhooks: {
