@@ -1,5 +1,5 @@
 import { createId } from "@paralleldrive/cuid2";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 
 import { db } from "~/db";
 import {
@@ -185,6 +185,9 @@ export async function getMembersForTenant(
 
   // fetch user details separately
   const userIds = memberships.map((m) => m.userId);
+  if (userIds.length === 0) {
+    return [];
+  }
   const { userTable } = await import("~/db/schema");
   const users = await db
     .select({
@@ -193,7 +196,7 @@ export async function getMembersForTenant(
       email: userTable.email,
     })
     .from(userTable)
-    .where((table, { inArray }) => inArray(table.id, userIds));
+    .where(inArray(userTable.id, userIds));
 
   const userMap = new Map(users.map((u) => [u.id, u]));
 
