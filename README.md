@@ -1,8 +1,6 @@
-# 🏬 relivator • next.js ecommerce starter
+# VSol Software E-Commerce Platform
 
-[demo](https://relivator.com) — [sponsor](https://github.com/sponsors/blefnk) — [discord](https://discord.gg/Pb8uKbwpsJ) — [github](https://github.com/blefnk/relivator) — [docs](https://deepwiki.com/blefnk/relivator-nextjs-template)
-
-> **relivator** is a robust ecommerce template built with next.js and other modern technologies. it's designed for developers who want a fast, modern, and scalable foundation without reinventing the backend.
+> **VSol Software** e-commerce platform built with Next.js and modern technologies. A scalable, production-ready e-commerce solution for VSol Software.
 
 ## stack
 
@@ -21,23 +19,31 @@
 13. 💳 **payments**: [polar](https://polar.sh)
 14. 🔑 **api**: [orpc](https://orpc.unnoq.com) _(🔜 w.i.p)_
 
-> these features define the main reliverse stack. for an alternative setup—featuring clerk, stripe, trpc, and more—check out [versator](https://github.com/blefnk/versator).
-
 ## quick start
 
-1. install [git](https://git-scm.com), [node.js](https://nodejs.org), [bun](https://bun.sh).
+1. install [git](https://git-scm.com), [node.js](https://nodejs.org), [bun](https://bun.sh), and [docker](https://www.docker.com/get-started).
 2. run:
 
    ```bash
-   git clone https://github.com/blefnk/relivator.git
-   cd relivator
+   git clone <repository-url>
+   cd vsol-e-commerce
    bun install
    copy .env.example .env
    ```
 
 3. fill in the required environment variables in the `.env` file.
-4. optionally, edit the `src/app.ts` file to make the app yours.
-5. run:
+4. start the database with docker:
+
+   ```bash
+   bun db:start # starts postgres in docker
+   ```
+
+5. update your `.env` file with the docker database connection:
+   ```
+   DATABASE_URL="postgresql://postgres:postgres@localhost:5432/vsol_ecommerce?sslmode=disable"
+   ```
+
+6. run:
 
    ```bash
    bun db:push # populate db with schema
@@ -45,8 +51,8 @@
    bun run build # build production version
    ```
 
-6. edit something in the code manually or ask ai to help you.
-7. done. seriously. you're building now.
+7. edit something in the code manually or ask ai to help you.
+8. done. seriously. you're building now.
 
 <!-- 
 2. run:
@@ -69,10 +75,15 @@
 | `bun db:push`   | apply db schema changes        |
 | `bun db:auth`   | update auth-related tables     |
 | `bun db:studio` | open visual db editor          |
+| `bun db:start`  | start postgres in docker       |
+| `bun db:stop`   | stop postgres container        |
+| `bun db:down`   | stop and remove containers     |
+| `bun db:reset`  | reset database (removes data)  |
+| `bun db:logs`   | view postgres logs             |
 
 ## polar integration
 
-relivator now integrates with [polar](https://polar.sh) for payment processing and subscription management.
+this platform integrates with [polar](https://polar.sh) for payment processing and subscription management.
 
 ### features
 
@@ -125,25 +136,12 @@ the following api routes are available for payment processing:
 - `/api/payments/customer-state` - get the current customer state
 - `/api/payments/subscriptions` - get user subscriptions
 
-## notes
+## about vsol software
 
-- relivator 1.4.0+ is ai-ready — optimized for ai-powered ides like cursor, making onboarding effortless even for beginners.
-- version 1.3.0 evolved into versator, featuring [clerk](https://clerk.com) authentication and [stripe](https://stripe.com) payments. explore [versator demo](https://versator.relivator.com/en), [repo](https://github.com/blefnk/versator), or [docs](https://docs.reliverse.org/versator).
+vsol software delivers exceptional software development services to north american companies. we specialize in staff augmentation, agentic ai solutions, and modern software architecture using microsoft .net and open source technologies.
 
-## stand with ukraine
-
-- 💙 help fund drones, medkits, and victory.
-- 💛 every dollar helps stop [russia's war crimes](https://war.ukraine.ua/russia-war-crimes) and saves lives.
-- ‼️ please, [donate now](https://u24.gov.ua), it matters.
-
-## stand with reliverse
-
-- ⭐ [star the repo](https://github.com/blefnk/relivator) to help the reliverse community grow.
-- 😉 follow this project's author, [nazar kornienko](https://github.com/blefnk) and his [reliverse](https://github.com/reliverse) ecosystem, to get updates about new projects faster.
-- 🦄 [become a sponsor](https://github.com/sponsors/blefnk) and power the next wave of tools that _just feel right_.
-
-> every bit of support helps keep the dream alive: dev tools that don't suck.
+visit us at [vsol.software](https://vsol.software)
 
 ## license
 
-mit © 2025 [nazar kornienko (blefnk)](https://github.com/blefnk), [reliverse](https://github.com/reliverse)
+proprietary © 2025 vsol software. all rights reserved.

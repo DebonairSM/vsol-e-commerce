@@ -6,6 +6,11 @@ export * from "./payments/relations";
 export * from "./payments/tables";
 export * from "./payments/types";
 
+export * from "./tenants/memberships";
+export * from "./tenants/relations";
+export * from "./tenants/tables";
+export * from "./tenants/types";
+
 // relations
 export * from "./users/relations";
 

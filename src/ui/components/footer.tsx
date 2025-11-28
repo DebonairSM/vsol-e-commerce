@@ -1,4 +1,5 @@
-import { Facebook, Github, Instagram, Linkedin, Twitter } from "lucide-react";
+import { Facebook, Instagram, Linkedin } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 
 import { SEO_CONFIG } from "~/app";
@@ -23,59 +24,64 @@ export function Footer({ className }: { className?: string }) {
         >
           <div className="space-y-4">
             <Link className="flex items-center gap-2" href="/">
-              <span
-                className={`
-                  bg-gradient-to-r from-primary to-primary/70 bg-clip-text
-                  text-xl font-bold tracking-tight text-transparent
-                `}
-              >
-                {SEO_CONFIG.name}
-              </span>
+              <Image
+                alt="VSol Software"
+                className="h-8 w-auto"
+                height={32}
+                src="/vsol-logo.png"
+                width={120}
+              />
             </Link>
             <p className="text-sm text-muted-foreground">
-              Your one-stop shop for everything tech. Premium products at
-              competitive prices.
+              VSol Software delivers exceptional software development services
+              to North American companies. We specialize in staff augmentation,
+              agentic AI solutions, and modern software architecture.
             </p>
             <div className="flex space-x-4">
               <Button
+                asChild
                 className="h-8 w-8 rounded-full"
                 size="icon"
                 variant="ghost"
               >
-                <Facebook className="h-4 w-4" />
-                <span className="sr-only">Facebook</span>
+                <Link
+                  href="https://www.facebook.com/vsol.wall/"
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >
+                  <Facebook className="h-4 w-4" />
+                  <span className="sr-only">Facebook</span>
+                </Link>
               </Button>
               <Button
+                asChild
                 className="h-8 w-8 rounded-full"
                 size="icon"
                 variant="ghost"
               >
-                <Twitter className="h-4 w-4" />
-                <span className="sr-only">Twitter</span>
+                <Link
+                  href="https://www.instagram.com/vsol.software"
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >
+                  <Instagram className="h-4 w-4" />
+                  <span className="sr-only">Instagram</span>
+                </Link>
               </Button>
               <Button
+                asChild
                 className="h-8 w-8 rounded-full"
                 size="icon"
                 variant="ghost"
               >
-                <Instagram className="h-4 w-4" />
-                <span className="sr-only">Instagram</span>
-              </Button>
-              <Button
-                className="h-8 w-8 rounded-full"
-                size="icon"
-                variant="ghost"
-              >
-                <Github className="h-4 w-4" />
-                <span className="sr-only">GitHub</span>
-              </Button>
-              <Button
-                className="h-8 w-8 rounded-full"
-                size="icon"
-                variant="ghost"
-              >
-                <Linkedin className="h-4 w-4" />
-                <span className="sr-only">LinkedIn</span>
+                <Link
+                  href="https://www.linkedin.com/company/vsol-software"
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >
+                  <Linkedin className="h-4 w-4" />
+                  <span className="sr-only">LinkedIn</span>
+                </Link>
               </Button>
             </div>
           </div>

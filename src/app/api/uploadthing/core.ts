@@ -5,6 +5,8 @@ import { UploadThingError } from "uploadthing/server";
 import { db } from "~/db";
 import { uploadsTable } from "~/db/schema";
 import { auth } from "~/lib/auth";
+import { getCurrentTenantForUser } from "~/lib/tenant-auth";
+import { getTenantFromRequest } from "~/lib/tenant";
 
 const f = createUploadthing();
 // FileRouter for the app, can contain multiple FileRoutes
@@ -30,9 +32,16 @@ export const ourFileRouter = {
       // If you throw, the user will not be able to upload
       if (!session?.user?.id) throw new UploadThingError("Unauthorized");
 
+      // get tenant and verify user has access
+      const tenant = await getCurrentTenantForUser(session.user.id);
+      if (!tenant) {
+        throw new UploadThingError(
+          "Tenant context required or user does not have access to tenant",
+        );
+      }
+
       // Whatever is returned here is accessible in onUploadComplete as `metadata`
-      // Ensure userId is correctly passed
-      return { userId: session.user.id };
+      return { userId: session.user.id, tenantId: tenant.id };
     })
     .onUploadComplete(async ({ file, metadata }) => {
       // This code RUNS ON THE SERVER after upload
@@ -48,6 +57,7 @@ export const ourFileRouter = {
           type: "image",
           url: file.ufsUrl, // Store the public CDN URL
           userId: metadata.userId,
+          tenantId: metadata.tenantId,
         });
         console.log(
           "Saved image upload details to database for userId:",
@@ -80,7 +90,16 @@ export const ourFileRouter = {
       // Same middleware logic as imageUploader
       const session = await auth.api.getSession({ headers: req.headers });
       if (!session?.user?.id) throw new UploadThingError("Unauthorized");
-      return { userId: session.user.id };
+
+      // get tenant and verify user has access
+      const tenant = await getCurrentTenantForUser(session.user.id);
+      if (!tenant) {
+        throw new UploadThingError(
+          "Tenant context required or user does not have access to tenant",
+        );
+      }
+
+      return { userId: session.user.id, tenantId: tenant.id };
     })
     .onUploadComplete(async ({ file, metadata }) => {
       console.log("Upload complete for userId (video):", metadata.userId);
@@ -95,6 +114,7 @@ export const ourFileRouter = {
           type: "video", // Explicitly set type to video
           url: file.ufsUrl,
           userId: metadata.userId,
+          tenantId: metadata.tenantId,
         });
         console.log(
           "Saved video upload details to database for userId:",

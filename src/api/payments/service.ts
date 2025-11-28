@@ -1,5 +1,5 @@
 import { Polar } from "@polar-sh/sdk";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
 
 import { db } from "~/db";
@@ -11,11 +11,17 @@ const polarClient = new Polar({
 });
 
 /**
- * Get a Polar customer by user ID from the database
+ * Get a Polar customer by user ID and tenant ID from the database
  */
-export async function getCustomerByUserId(userId: string) {
+export async function getCustomerByUserId(
+  userId: string,
+  tenantId: string,
+) {
   const customer = await db.query.polarCustomerTable.findFirst({
-    where: eq(polarCustomerTable.userId, userId),
+    where: and(
+      eq(polarCustomerTable.userId, userId),
+      eq(polarCustomerTable.tenantId, tenantId),
+    ),
   });
 
   if (!customer) {
@@ -28,8 +34,8 @@ export async function getCustomerByUserId(userId: string) {
 /**
  * Get customer state from Polar API
  */
-export async function getCustomerState(userId: string) {
-  const customer = await getCustomerByUserId(userId);
+export async function getCustomerState(userId: string, tenantId: string) {
+  const customer = await getCustomerByUserId(userId, tenantId);
   
   if (!customer) {
     return null;
@@ -45,11 +51,14 @@ export async function getCustomerState(userId: string) {
 }
 
 /**
- * Get all subscriptions for a user
+ * Get all subscriptions for a user within a tenant
  */
-export async function getUserSubscriptions(userId: string) {
+export async function getUserSubscriptions(userId: string, tenantId: string) {
   const subscriptions = await db.query.polarSubscriptionTable.findMany({
-    where: eq(polarSubscriptionTable.userId, userId),
+    where: and(
+      eq(polarSubscriptionTable.userId, userId),
+      eq(polarSubscriptionTable.tenantId, tenantId),
+    ),
   });
 
   return subscriptions;
@@ -58,7 +67,12 @@ export async function getUserSubscriptions(userId: string) {
 /**
  * Create a new customer in Polar and save reference in database
  */
-export async function createCustomer(userId: string, email: string, name?: string) {
+export async function createCustomer(
+  userId: string,
+  tenantId: string,
+  email: string,
+  name?: string,
+) {
   try {
     const customer = await polarClient.customers.create({
       email,
@@ -69,6 +83,7 @@ export async function createCustomer(userId: string, email: string, name?: strin
     await db.insert(polarCustomerTable).values({
       id: uuidv4(),
       userId,
+      tenantId,
       customerId: customer.id,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -86,6 +101,7 @@ export async function createCustomer(userId: string, email: string, name?: strin
  */
 export async function syncSubscription(
   userId: string,
+  tenantId: string,
   customerId: string,
   subscriptionId: string,
   productId: string,
@@ -110,6 +126,7 @@ export async function syncSubscription(
     const subscription = await db.insert(polarSubscriptionTable).values({
       id: uuidv4(),
       userId,
+      tenantId,
       customerId,
       subscriptionId,
       productId,
@@ -126,11 +143,14 @@ export async function syncSubscription(
 }
 
 /**
- * Check if a user has an active subscription
+ * Check if a user has an active subscription within a tenant
  */
-export async function hasActiveSubscription(userId: string): Promise<boolean> {
-  const subscriptions = await getUserSubscriptions(userId);
-  return subscriptions.some(sub => sub.status === "active");
+export async function hasActiveSubscription(
+  userId: string,
+  tenantId: string,
+): Promise<boolean> {
+  const subscriptions = await getUserSubscriptions(userId, tenantId);
+  return subscriptions.some((sub) => sub.status === "active");
 }
 
 /**

@@ -1,6 +1,7 @@
 "use client";
 
 import { Menu, X } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
@@ -61,18 +62,14 @@ export function Header({ showAuth = true }: HeaderProps) {
         <div className="flex h-16 items-center justify-between">
           <div className="flex items-center gap-6">
             <Link className="flex items-center gap-2" href="/">
-              <span
-                className={cn(
-                  "text-xl font-bold",
-                  !isDashboard &&
-                    `
-                      bg-gradient-to-r from-primary to-primary/70 bg-clip-text
-                      tracking-tight text-transparent
-                    `,
-                )}
-              >
-                {SEO_CONFIG.name}
-              </span>
+              <Image
+                alt="VSol Software"
+                className="h-8 w-auto"
+                height={32}
+                priority
+                src="/vsol-logo.png"
+                width={120}
+              />
             </Link>
             <nav
               className={`

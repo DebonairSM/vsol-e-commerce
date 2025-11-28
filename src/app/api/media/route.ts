@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { UTApi } from "uploadthing/server";
@@ -6,6 +6,7 @@ import { UTApi } from "uploadthing/server";
 import { db } from "~/db";
 import { uploadsTable } from "~/db/schema/uploads/tables";
 import { auth } from "~/lib/auth";
+import { getCurrentTenantForUser, requireTenantAccess } from "~/lib/tenant-auth";
 
 export async function DELETE(request: Request) {
   try {
@@ -19,6 +20,14 @@ export async function DELETE(request: Request) {
       return new NextResponse("Missing media ID", { status: 400 });
     }
 
+    // get tenant and verify user has access
+    const tenant = await getCurrentTenantForUser(session.user.id);
+    if (!tenant) {
+      return new NextResponse("Tenant context required or access denied", {
+        status: 403,
+      });
+    }
+
     // Get the media item to check ownership and get the key
     const mediaItem = await db.query.uploadsTable.findFirst({
       where: eq(uploadsTable.id, body.id),
@@ -28,8 +37,15 @@ export async function DELETE(request: Request) {
       return new NextResponse("Media not found", { status: 404 });
     }
 
+    // verify user owns the media and it belongs to the tenant
     if (mediaItem.userId !== session.user.id) {
       return new NextResponse("Unauthorized", { status: 403 });
+    }
+
+    if (mediaItem.tenantId !== tenant.id) {
+      return new NextResponse("Media does not belong to current tenant", {
+        status: 403,
+      });
     }
 
     // Delete from UploadThing
@@ -60,9 +76,18 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // get tenant and verify user has access
+    const tenant = await getCurrentTenantForUser(session.user.id);
+    if (!tenant) {
+      return NextResponse.json(
+        { error: "Tenant context required or access denied" },
+        { status: 403 },
+      );
+    }
+
     const userId = session.user.id;
 
-    // Fetch all media types for the user
+    // Fetch all media types for the user within the current tenant
     const userMedia = await db
       .select({
         createdAt: uploadsTable.createdAt,
@@ -72,7 +97,12 @@ export async function GET(request: Request) {
         url: uploadsTable.url,
       })
       .from(uploadsTable)
-      .where(eq(uploadsTable.userId, userId))
+      .where(
+        and(
+          eq(uploadsTable.userId, userId),
+          eq(uploadsTable.tenantId, tenant.id),
+        ),
+      )
       .orderBy(uploadsTable.createdAt);
 
     return NextResponse.json(userMedia);

@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { db } from "~/db";
 import { uploadsTable } from "~/db/schema/uploads/tables";
 import { auth } from "~/lib/auth";
+import { getCurrentTenantForUser } from "~/lib/tenant-auth";
 
 export async function POST(req: Request) {
   try {
@@ -11,6 +12,15 @@ export async function POST(req: Request) {
     const session = await auth.api.getSession({ headers: req.headers });
     if (!session?.user) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
+
+    // get tenant and verify user has access
+    const tenant = await getCurrentTenantForUser(session.user.id);
+    if (!tenant) {
+      return NextResponse.json(
+        { message: "Tenant context required or access denied" },
+        { status: 403 },
+      );
     }
 
     // Get URL from request body
@@ -55,6 +65,7 @@ export async function POST(req: Request) {
       type,
       url,
       userId: session.user.id,
+      tenantId: tenant.id,
     });
 
     return NextResponse.json({ success: true });

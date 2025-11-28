@@ -1,17 +1,17 @@
 export const SEO_CONFIG = {
   description:
-    "Relivator is a robust ecommerce template built with next.js and other modern technologies. It's designed for developers who want a fast, modern, and scalable foundation without reinventing the backend.",
-  fullName: "Relivator Next.js Template",
-  name: "Relivator",
-  slogan: "Store which makes you happy.",
+    "VSol Software delivers exceptional software development services to North American companies. We specialize in staff augmentation, agentic AI solutions, and modern software architecture using Microsoft .NET and open source technologies.",
+  fullName: "VSol Software",
+  name: "VSol Software",
+  slogan: "Unleash the Value",
 };
 
 export const SYSTEM_CONFIG = {
   redirectAfterSignIn: "/dashboard/uploads",
   redirectAfterSignUp: "/dashboard/uploads",
-  repoName: "relivator",
-  repoOwner: "blefnk",
-  repoStars: true,
+  repoName: "vsol-e-commerce",
+  repoOwner: "vsol-software",
+  repoStars: false,
 };
 
 export const ADMIN_CONFIG = {
