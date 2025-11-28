@@ -132,9 +132,10 @@ export async function removeUserFromTenant(
         eq(tenantMembershipTable.userId, userId),
         eq(tenantMembershipTable.tenantId, tenantId),
       ),
-    );
+    )
+    .returning();
 
-  return result.rowCount > 0;
+  return result.length > 0;
 }
 
 export async function updateUserRoleInTenant(
@@ -210,8 +211,9 @@ export async function deleteTenant(tenantId: string): Promise<boolean> {
   // cascade delete will handle memberships and related data
   const result = await db
     .delete(tenantTable)
-    .where(eq(tenantTable.id, tenantId));
+    .where(eq(tenantTable.id, tenantId))
+    .returning();
 
-  return result.rowCount > 0;
+  return result.length > 0;
 }
 
