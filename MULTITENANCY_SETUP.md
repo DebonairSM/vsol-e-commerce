@@ -25,16 +25,18 @@ This application now supports multitenancy similar to Squarespace, where each te
 ### Updated Tables
 
 The following tables now include `tenantId` (NOT NULL, with foreign key and indexes):
+
 - `uploads` - all uploads are scoped to a tenant
-- `polar_customer` - payment customers are per-tenant
-- `polar_subscription` - subscriptions are per-tenant
+- `stripe_customer` - Stripe customers are per-tenant
+- `stripe_subscription` - subscriptions are per-tenant
 
 ### Database Indexes
 
 Performance indexes have been added on:
+
 - `uploads.tenantId` and `uploads(userId, tenantId)`
-- `polar_customer.tenantId` and `polar_customer(userId, tenantId)`
-- `polar_subscription.tenantId` and `polar_subscription(userId, tenantId)`
+- `stripe_customer.tenantId` and `stripe_customer(userId, tenantId)`
+- `stripe_subscription.tenantId` and `stripe_subscription(userId, tenantId)`
 - `tenant_membership.userId` and `tenant_membership.tenantId`
 
 ## Environment Variables
@@ -59,9 +61,16 @@ AUTH_GITHUB_ID="temp_github_client_id"
 AUTH_GITHUB_SECRET="temp_github_client_secret"
 UPLOADTHING_TOKEN="temp_uploadthing_token"
 UPLOADTHING_SECRET_KEY="sk_temp_temp_temp_temp_temp_temp_temp"
-POLAR_ACCESS_TOKEN="temp_polar_access_token"
-POLAR_WEBHOOK_SECRET="temp_polar_webhook_secret"
-POLAR_ENVIRONMENT="sandbox"
+
+# Stripe (get from https://dashboard.stripe.com/apikeys)
+STRIPE_SECRET_KEY="sk_test_..."
+STRIPE_WEBHOOK_SECRET="whsec_..."
+STRIPE_PRICE_ID_PRO="price_..."
+STRIPE_PRICE_ID_PREMIUM="price_..."
+
+# Resend (get from https://resend.com/api-keys)
+RESEND_API_KEY="re_..."
+RESEND_FROM_EMAIL="noreply@yourdomain.com"
 ```
 
 ## Port Configuration
@@ -212,20 +221,24 @@ All API routes now require tenant context:
 ## Troubleshooting
 
 ### Tenant Not Found
+
 - Verify the subdomain exists in the database
 - Check that `isActive` is `true` for the tenant
 - Ensure middleware is running and setting headers correctly
 
 ### Access Denied (403)
+
 - User must be a member of the tenant (check `tenant_membership` table)
 - Verify tenant resolution is working (check middleware logs)
 
 ### Database Errors
+
 - Ensure all `tenantId` columns are populated (NOT NULL constraint)
 - Run migration utilities for existing data
 - Check foreign key constraints are satisfied
 
 ### Custom Domain Not Working
+
 - Verify DNS is configured to point to your application
 - Check that custom domain is set in tenant table (lowercase, no protocol)
 - Ensure middleware is checking custom domains (production only)
@@ -239,4 +252,3 @@ All API routes now require tenant context:
 - All queries are filtered by tenantId for security
 - Unique constraint on (userId, tenantId) prevents duplicate memberships
 - Database indexes optimize tenant-scoped queries
-

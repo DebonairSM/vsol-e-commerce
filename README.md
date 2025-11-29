@@ -1,147 +1,135 @@
-# VSol Software E-Commerce Platform
+# VSol E-Commerce Platform
 
-> **VSol Software** e-commerce platform built with Next.js and modern technologies. A scalable, production-ready e-commerce solution for VSol Software.
+## Installation
 
-## stack
+1. Install dependencies: [git](https://git-scm.com), [node.js](https://nodejs.org), [bun](https://bun.sh), [docker](https://www.docker.com/get-started)
 
-1. 🧱 **core**: [nextjs 15.3](https://nextjs.org) + [react 19.1](https://react.dev) + [ts 5.8](https://typescriptlang.org)
-2. 🎨 **ui**: [tailwind 4.1](https://tailwindcss.com) + [shadcn/ui](https://ui.shadcn.com)
-3. 🔒 **auth**: [better-auth](https://better-auth.com)
-4. 🎬 **anims**: [animejs](https://animejs.com)
-5. 📦 **storage**: [uploadthing](https://uploadthing.com)
-6. 📊 **analytics**: [vercel](https://vercel.com/docs/analytics)
-7. 🧬 **db**: [drizzle-orm](https://orm.drizzle.team) ([pg](https://neon.tech/postgresql/tutorial)) + [neon](https://neon.tech)/(🤔🔜)[supabase](https://supabase.com)
-8. 🏗️ **dx**: [eslint](https://eslint.org) + [biome](https://biomejs.dev) + [knip](https://knip.dev)
-9. 📝 **forms**: [react-form](https://tanstack.com/form) _(🔜 w.i.p)_ + [arktype](https://arktype.io)
-10. 📅 **tables**: [react-table](https://tanstack.com/table)
-11. 🌐 **i18n**: [next-intl](https://next-intl.dev) _(🔜 w.i.p)_
-12. 💌 **email**: [resend](https://resend.com) _(🔜 w.i.p)_
-13. 💳 **payments**: [polar](https://polar.sh)
-14. 🔑 **api**: [orpc](https://orpc.unnoq.com) _(🔜 w.i.p)_
-
-## quick start
-
-1. install [git](https://git-scm.com), [node.js](https://nodejs.org), [bun](https://bun.sh), and [docker](https://www.docker.com/get-started).
-2. run:
+2. Clone and setup:
 
    ```bash
    git clone <repository-url>
    cd vsol-e-commerce
    bun install
-   copy .env.example .env
+   cp .env.example .env
    ```
 
-3. fill in the required environment variables in the `.env` file.
-4. start the database with docker:
+3. Configure environment variables in `.env`:
+   - `DATABASE_URL` - PostgreSQL connection string
+   - `AUTH_SECRET` - Generate with: `bunx randomstring length=32`
+   - `NEXT_PUBLIC_APP_URL` - Public app URL
+   - `NEXT_SERVER_APP_URL` - Server app URL
+   - Optional: OAuth (Google/GitHub), Uploadthing, Stripe payment credentials
+
+4. Start database:
 
    ```bash
-   bun db:start # starts postgres in docker
+   bun db:start  # starts postgres in docker
    ```
 
-5. update your `.env` file with the docker database connection:
+5. Update `.env` with docker database:
+
    ```
    DATABASE_URL="postgresql://postgres:postgres@localhost:5432/vsol_ecommerce?sslmode=disable"
    ```
 
-6. run:
+6. Initialize database and start:
 
    ```bash
-   bun db:push # populate db with schema
-   bun dev # start development server
-   bun run build # build production version
+   bun db:push  # apply schema
+   bun dev      # start dev server on port 8080
    ```
 
-7. edit something in the code manually or ask ai to help you.
-8. done. seriously. you're building now.
+## Commands
 
-<!-- 
-2. run:
+| Command         | Description                    |
+|----------------|--------------------------------|
+| `bun dev`      | start development server       |
+| `bun build`    | create production build         |
+| `bun db:push`  | apply database schema changes  |
+| `bun db:auth`  | update auth-related tables      |
+| `bun db:studio`| open visual database editor    |
+| `bun db:start` | start postgres in docker        |
+| `bun db:stop`  | stop postgres container        |
+| `bun db:reset` | reset database (removes data)  |
+
+## Deployment to Render
+
+### Prerequisites
+
+1. Create a [Render](https://render.com) account
+2. Connect your GitHub repository
+
+### Database Setup
+
+1. Create a new PostgreSQL database in Render
+2. Copy the Internal Database URL from Render dashboard
+3. Add to environment variables: `DATABASE_URL`
+
+### Web Service Setup
+
+1. Create a new Web Service in Render
+2. Connect your GitHub repository
+3. Configure:
+   - **Build Command**: `bun install && bun run build`
+   - **Start Command**: `bun start` (or `node server.js` if using custom server)
+   - **Environment**: Node
+   - **Node Version**: 20.x or later
+
+4. Set environment variables in Render dashboard:
+
+   ```
+   DATABASE_URL=<from-postgres-service>
+   AUTH_SECRET=<generate-secure-random-string>
+   NEXT_PUBLIC_APP_URL=https://your-app.onrender.com
+   NEXT_SERVER_APP_URL=https://your-app.onrender.com
+   BETTER_AUTH_SECRET=<same-as-AUTH_SECRET-or-separate>
+   ```
+
+   Add other required variables from `.env.example` as needed.
+
+5. Deploy:
+   - Render will auto-deploy on git push to main branch
+   - Or manually trigger deployment from dashboard
+
+### Post-Deployment
+
+1. Run database migrations:
+
    ```bash
-   bun i -g @reliverse/cli
-   reliverse cli
+   bun db:push
    ```
-3. select **"create a new project"**.
-4. follow prompts to configure your store.
--->
 
-### commands
+   Or use Render's shell/SSH to run migrations after deployment
 
-| command         | description                    |
-|-----------------|--------------------------------|
-| `bun dev`       | start local development        |
-| `bun build`     | create a production build      |
-| `bun latest`    | install latest deps            |
-| `bun ui`        | add shadcn components          |
-| `bun db:push`   | apply db schema changes        |
-| `bun db:auth`   | update auth-related tables     |
-| `bun db:studio` | open visual db editor          |
-| `bun db:start`  | start postgres in docker       |
-| `bun db:stop`   | stop postgres container        |
-| `bun db:down`   | stop and remove containers     |
-| `bun db:reset`  | reset database (removes data)  |
-| `bun db:logs`   | view postgres logs             |
+2. Verify:
+   - Check application logs in Render dashboard
+   - Test authentication endpoints
+   - Verify database connections
 
-## polar integration
+### Environment Variables for Production
 
-this platform integrates with [polar](https://polar.sh) for payment processing and subscription management.
+Required:
 
-### features
+- `DATABASE_URL` - PostgreSQL connection string from Render
+- `AUTH_SECRET` or `BETTER_AUTH_SECRET` - Secure random string (32+ chars)
+- `NEXT_PUBLIC_APP_URL` - Your Render app URL
+- `NEXT_SERVER_APP_URL` - Your Render app URL
 
-- checkout flow for subscription purchases
-- customer portal for managing subscriptions
-- webhook handling for subscription events
-- automatic customer creation on signup
-- integration with better-auth for seamless authentication
+Optional (for full functionality):
 
-### setup instructions
+- `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` - Google OAuth
+- `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` - GitHub OAuth
+- `UPLOADTHING_TOKEN` / `UPLOADTHING_SECRET_KEY` - File uploads
+- `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` - Payment processing
+- `RESEND_API_KEY` - Transactional emails
 
-1. create an account on [polar](https://polar.sh)
-2. create an organization and get an organization access token
-3. configure your environment variables in `.env`:
-   ```
-   POLAR_ACCESS_TOKEN="your_access_token"
-   POLAR_WEBHOOK_SECRET="your_webhook_secret"
-   POLAR_ENVIRONMENT="production" # or "sandbox" for testing
-   ```
-4. create products in the polar dashboard
-5. update the product IDs in `src/lib/auth.ts` to match your polar products:
-   ```typescript
-   checkout: {
-     enabled: true,
-     products: [
-       {
-         productId: "your-product-id", // Replace with actual product ID from Polar Dashboard
-         slug: "pro" // Custom slug for easy reference in Checkout URL
-       }
-     ]
-   }
-   ```
-6. run `bun db:push` to create the necessary database tables
-7. start the application with `bun dev`
+## Troubleshooting
 
-### verification
+- **Database connection errors**: Verify `DATABASE_URL` format and credentials
+- **Auth errors**: Ensure `AUTH_SECRET` is set and at least 32 characters
+- **Build failures**: Check Node version matches Render environment (20.x+)
+- **Port issues**: Render automatically assigns port via `PORT` env var
 
-to verify that the integration is working:
+## License
 
-1. sign up for an account
-2. navigate to the dashboard billing page (`/dashboard/billing`)
-3. try subscribing to a plan
-4. check that your subscription appears in the billing dashboard
-5. test the customer portal by clicking "manage subscription"
-
-### api routes
-
-the following api routes are available for payment processing:
-
-- `/api/payments/customer-state` - get the current customer state
-- `/api/payments/subscriptions` - get user subscriptions
-
-## about vsol software
-
-vsol software delivers exceptional software development services to north american companies. we specialize in staff augmentation, agentic ai solutions, and modern software architecture using microsoft .net and open source technologies.
-
-visit us at [vsol.software](https://vsol.software)
-
-## license
-
-proprietary © 2025 vsol software. all rights reserved.
+Proprietary © 2025 VSol Software. All rights reserved.

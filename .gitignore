@@ -1,14 +1,38 @@
-/auth-schema.ts
-/node_modules
-next-env.d.ts
-*.tsbuildinfo
-.eslintcache
-.DS_Store
-.vercel
-*.log*
-.venv
-.idea
-.next
-.exe
-.dll
+# dependencies
+node_modules/
+
+# build output
+.next/
+out/
+dist/
+
+# env files
 .env
+.env.local
+.env.*.local
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# editor/ide
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# os
+.DS_Store
+Thumbs.db
+
+# testing
+.playwright-mcp/
+coverage/
+
+# misc
+.vercel/
+.eslintcache
+*.log*
+
+# project-specific
+/auth-schema.ts

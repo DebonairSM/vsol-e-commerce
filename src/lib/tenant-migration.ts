@@ -2,8 +2,8 @@ import { eq } from "drizzle-orm";
 
 import { db } from "~/db";
 import {
-  polarCustomerTable,
-  polarSubscriptionTable,
+  stripeCustomerTable,
+  stripeSubscriptionTable,
   uploadsTable,
   userTable,
 } from "~/db/schema";
@@ -42,15 +42,15 @@ export async function migrateUserToTenant(
 
   // migrate payment customers
   await db
-    .update(polarCustomerTable)
+    .update(stripeCustomerTable)
     .set({ tenantId: tenant.id })
-    .where(eq(polarCustomerTable.userId, userId));
+    .where(eq(stripeCustomerTable.userId, userId));
 
   // migrate subscriptions
   await db
-    .update(polarSubscriptionTable)
+    .update(stripeSubscriptionTable)
     .set({ tenantId: tenant.id })
-    .where(eq(polarSubscriptionTable.userId, userId));
+    .where(eq(stripeSubscriptionTable.userId, userId));
 
   return tenant.id;
 }
@@ -104,14 +104,6 @@ export async function assignOrphanedDataToTenant(tenantId: string): Promise<{
   customersUpdated: number;
   subscriptionsUpdated: number;
 }> {
-  // update uploads without tenant
-  const uploadsResult = await db
-    .update(uploadsTable)
-    .set({ tenantId })
-    .where(eq(uploadsTable.tenantId, "" as any)); // this won't work, need to check for null
-
-  // better approach: use raw sql or check for null tenantId
-  // for now, we'll use a different approach
   const allUploads = await db.query.uploadsTable.findMany();
   let uploadsUpdated = 0;
 
@@ -125,32 +117,31 @@ export async function assignOrphanedDataToTenant(tenantId: string): Promise<{
     }
   }
 
-  const allCustomers = await db.query.polarCustomerTable.findMany();
+  const allCustomers = await db.query.stripeCustomerTable.findMany();
   let customersUpdated = 0;
 
   for (const customer of allCustomers) {
     if (!customer.tenantId) {
       await db
-        .update(polarCustomerTable)
+        .update(stripeCustomerTable)
         .set({ tenantId })
-        .where(eq(polarCustomerTable.id, customer.id));
+        .where(eq(stripeCustomerTable.id, customer.id));
       customersUpdated++;
     }
   }
 
-  const allSubscriptions = await db.query.polarSubscriptionTable.findMany();
+  const allSubscriptions = await db.query.stripeSubscriptionTable.findMany();
   let subscriptionsUpdated = 0;
 
   for (const subscription of allSubscriptions) {
     if (!subscription.tenantId) {
       await db
-        .update(polarSubscriptionTable)
+        .update(stripeSubscriptionTable)
         .set({ tenantId })
-        .where(eq(polarSubscriptionTable.id, subscription.id));
+        .where(eq(stripeSubscriptionTable.id, subscription.id));
       subscriptionsUpdated++;
     }
   }
 
   return { uploadsUpdated, customersUpdated, subscriptionsUpdated };
 }
-

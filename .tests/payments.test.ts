@@ -1,214 +1,296 @@
-import { expect, test, describe, beforeAll, afterAll } from "bun:test";
-import { eq } from "drizzle-orm";
+import { expect, test, describe } from "bun:test";
 
-const mockCustomerId = "mock-customer-id";
+const mockCustomerId = "cus_mock123";
 const mockUserId = "test-user-id";
+const mockTenantId = "test-tenant-id";
 const mockEmail = "test@example.com";
-const mockSubscriptionId = "mock-subscription-id";
-const mockProductId = "mock-product-id";
+const mockSubscriptionId = "sub_mock123";
+const mockPriceId = "price_mock123";
+const mockProductId = "prod_mock123";
 
 const mockDb = {
   query: {
-    polarCustomerTable: {
+    stripeCustomerTable: {
       findFirst: async () => ({
         id: "db-id",
         userId: mockUserId,
+        tenantId: mockTenantId,
         customerId: mockCustomerId,
+        email: mockEmail,
         createdAt: new Date(),
         updatedAt: new Date(),
       }),
-      findMany: async () => [{
-        id: "db-id",
-        userId: mockUserId,
-        customerId: mockCustomerId,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }],
+      findMany: async () => [
+        {
+          id: "db-id",
+          userId: mockUserId,
+          tenantId: mockTenantId,
+          customerId: mockCustomerId,
+          email: mockEmail,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ],
     },
-    polarSubscriptionTable: {
+    stripeSubscriptionTable: {
       findFirst: async () => ({
         id: "sub-id",
         userId: mockUserId,
+        tenantId: mockTenantId,
         customerId: mockCustomerId,
         subscriptionId: mockSubscriptionId,
+        priceId: mockPriceId,
         productId: mockProductId,
         status: "active",
+        cancelAtPeriodEnd: false,
+        currentPeriodStart: new Date(),
+        currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        cancelAt: null,
+        canceledAt: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       }),
-      findMany: async () => [{
-        id: "sub-id",
-        userId: mockUserId,
-        customerId: mockCustomerId,
-        subscriptionId: mockSubscriptionId,
-        productId: mockProductId,
-        status: "active",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }],
+      findMany: async () => [
+        {
+          id: "sub-id",
+          userId: mockUserId,
+          tenantId: mockTenantId,
+          customerId: mockCustomerId,
+          subscriptionId: mockSubscriptionId,
+          priceId: mockPriceId,
+          productId: mockProductId,
+          status: "active",
+          cancelAtPeriodEnd: false,
+          currentPeriodStart: new Date(),
+          currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          cancelAt: null,
+          canceledAt: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ],
     },
   },
   insert: () => ({
-    values: () => Promise.resolve({ id: "new-id" }),
+    values: () => ({
+      returning: () => Promise.resolve([{ id: "new-id" }]),
+    }),
   }),
   update: () => ({
     set: () => ({
       where: () => Promise.resolve({ success: true }),
     }),
   }),
-  delete: () => ({
-    where: () => Promise.resolve({ success: true }),
-  }),
 };
 
-const mockPolarClient = {
+const mockStripeClient = {
   customers: {
     create: async () => ({
       id: mockCustomerId,
       email: mockEmail,
-      externalId: mockUserId,
+      metadata: { userId: mockUserId, tenantId: mockTenantId },
     }),
-    get: async () => ({
+    retrieve: async () => ({
       id: mockCustomerId,
       email: mockEmail,
-      externalId: mockUserId,
-      subscriptions: [],
-      entitlements: [],
-      benefits: [],
+      metadata: { userId: mockUserId, tenantId: mockTenantId },
     }),
   },
-  checkouts: {
-    create: async () => ({
-      url: "https://checkout.polar.sh/test-checkout",
+  checkout: {
+    sessions: {
+      create: async () => ({
+        id: "cs_mock123",
+        url: "https://checkout.stripe.com/c/pay/cs_mock123",
+      }),
+    },
+  },
+  billingPortal: {
+    sessions: {
+      create: async () => ({
+        id: "bps_mock123",
+        url: "https://billing.stripe.com/p/session/bps_mock123",
+      }),
+    },
+  },
+  subscriptions: {
+    retrieve: async () => ({
+      id: mockSubscriptionId,
+      customer: mockCustomerId,
+      status: "active",
+      cancel_at_period_end: false,
+      current_period_start: Math.floor(Date.now() / 1000),
+      current_period_end: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60,
+      items: {
+        data: [
+          {
+            price: {
+              id: mockPriceId,
+              product: mockProductId,
+            },
+          },
+        ],
+      },
     }),
   },
 };
 
 const mockServices = {
-  createCustomer: async (userId: string, email: string) => {
-    const customer = await mockPolarClient.customers.create();
-    return customer;
+  getCustomerByUserId: async (userId: string, tenantId: string) => {
+    return mockDb.query.stripeCustomerTable.findFirst();
   },
-  getCustomerByUserId: async (userId: string) => {
-    return mockDb.query.polarCustomerTable.findFirst();
-  },
-  getCustomerState: async (userId: string) => {
-    const customer = await mockDb.query.polarCustomerTable.findFirst();
-    if (!customer) return null;
-    return mockPolarClient.customers.get();
-  },
-  getUserSubscriptions: async (userId: string) => {
-    return mockDb.query.polarSubscriptionTable.findMany();
-  },
-  syncSubscription: async (
-    userId: string, 
-    customerId: string, 
-    subscriptionId: string, 
-    productId: string, 
-    status: string
+  getOrCreateCustomer: async (
+    userId: string,
+    tenantId: string,
+    email: string,
   ) => {
-    return { success: true };
+    const existing = await mockDb.query.stripeCustomerTable.findFirst();
+    if (existing) return existing;
+    await mockStripeClient.customers.create();
+    return mockDb.query.stripeCustomerTable.findFirst();
   },
-  hasActiveSubscription: async (userId: string) => {
-    const subscriptions = await mockDb.query.polarSubscriptionTable.findMany();
-    return subscriptions.some(sub => sub.status === "active");
+  getCustomerState: async (userId: string, tenantId: string) => {
+    const customer = await mockDb.query.stripeCustomerTable.findFirst();
+    if (!customer) return null;
+    return mockStripeClient.customers.retrieve();
   },
-  getCheckoutUrl: async (customerId: string, productSlug: string) => {
-    const checkout = await mockPolarClient.checkouts.create();
-    return checkout.url;
+  getUserSubscriptions: async (userId: string, tenantId: string) => {
+    return mockDb.query.stripeSubscriptionTable.findMany();
+  },
+  hasActiveSubscription: async (userId: string, tenantId: string) => {
+    const subscriptions = await mockDb.query.stripeSubscriptionTable.findMany();
+    return subscriptions.some(
+      (sub) => sub.status === "active" || sub.status === "trialing",
+    );
+  },
+  createCheckoutSession: async (customerId: string, priceId: string) => {
+    return mockStripeClient.checkout.sessions.create();
+  },
+  createCustomerPortalSession: async (customerId: string) => {
+    return mockStripeClient.billingPortal.sessions.create();
   },
 };
 
 describe("Payment Service", () => {
-  test("createCustomer should create a customer record", async () => {
-    const customer = await mockServices.createCustomer(mockUserId, mockEmail);
+  test("getCustomerByUserId should return customer", async () => {
+    const customer = await mockServices.getCustomerByUserId(
+      mockUserId,
+      mockTenantId,
+    );
     expect(customer).toBeDefined();
-    expect(customer.id).toBe(mockCustomerId);
-    
-    const dbCustomer = await mockServices.getCustomerByUserId(mockUserId);
-    expect(dbCustomer).toBeDefined();
-    expect(dbCustomer?.customerId).toBe(mockCustomerId);
-    expect(dbCustomer?.userId).toBe(mockUserId);
+    expect(customer?.customerId).toBe(mockCustomerId);
+    expect(customer?.userId).toBe(mockUserId);
+    expect(customer?.tenantId).toBe(mockTenantId);
   });
-  
-  test("getCustomerState should return customer state", async () => {
-    const customerState = await mockServices.getCustomerState(mockUserId);
+
+  test("getOrCreateCustomer should return existing customer", async () => {
+    const customer = await mockServices.getOrCreateCustomer(
+      mockUserId,
+      mockTenantId,
+      mockEmail,
+    );
+    expect(customer).toBeDefined();
+    expect(customer?.customerId).toBe(mockCustomerId);
+  });
+
+  test("getCustomerState should return Stripe customer", async () => {
+    const customerState = await mockServices.getCustomerState(
+      mockUserId,
+      mockTenantId,
+    );
     expect(customerState).toBeDefined();
     expect(customerState?.id).toBe(mockCustomerId);
   });
-  
-  test("syncSubscription should create a subscription record", async () => {
-    await mockServices.syncSubscription(
+
+  test("getUserSubscriptions should return subscriptions", async () => {
+    const subscriptions = await mockServices.getUserSubscriptions(
       mockUserId,
-      mockCustomerId,
-      mockSubscriptionId,
-      mockProductId,
-      "active"
+      mockTenantId,
     );
-    
-    const subscriptions = await mockServices.getUserSubscriptions(mockUserId);
     expect(subscriptions.length).toBe(1);
     expect(subscriptions[0].subscriptionId).toBe(mockSubscriptionId);
     expect(subscriptions[0].status).toBe("active");
   });
-  
+
   test("hasActiveSubscription should return true for active subscriptions", async () => {
-    const hasActive = await mockServices.hasActiveSubscription(mockUserId);
+    const hasActive = await mockServices.hasActiveSubscription(
+      mockUserId,
+      mockTenantId,
+    );
     expect(hasActive).toBe(true);
   });
-  
-  test("getCheckoutUrl should return a valid URL", async () => {
-    const url = await mockServices.getCheckoutUrl(mockCustomerId, "pro");
-    expect(url).toBe("https://checkout.polar.sh/test-checkout");
+
+  test("createCheckoutSession should return session with URL", async () => {
+    const session = await mockServices.createCheckoutSession(
+      mockCustomerId,
+      mockPriceId,
+    );
+    expect(session).toBeDefined();
+    expect(session.url).toContain("checkout.stripe.com");
+  });
+
+  test("createCustomerPortalSession should return session with URL", async () => {
+    const session =
+      await mockServices.createCustomerPortalSession(mockCustomerId);
+    expect(session).toBeDefined();
+    expect(session.url).toContain("billing.stripe.com");
   });
 });
 
-describe("Polar Integration", () => {
-  test("Polar client should be properly configured", () => {
+describe("Stripe Integration", () => {
+  test("Stripe environment variables should be defined", () => {
     if (process.env.CI) {
-      console.log("Skipping Polar client config test in CI environment");
+      console.log("Skipping Stripe env test in CI environment");
       return;
     }
-    
-    process.env.POLAR_ACCESS_TOKEN = process.env.POLAR_ACCESS_TOKEN || "test-token";
-    process.env.POLAR_WEBHOOK_SECRET = process.env.POLAR_WEBHOOK_SECRET || "test-secret";
-    
-    expect(process.env.POLAR_ACCESS_TOKEN).toBeDefined();
-    expect(process.env.POLAR_WEBHOOK_SECRET).toBeDefined();
+
+    process.env.STRIPE_SECRET_KEY =
+      process.env.STRIPE_SECRET_KEY || "sk_test_mock";
+    process.env.STRIPE_WEBHOOK_SECRET =
+      process.env.STRIPE_WEBHOOK_SECRET || "whsec_mock";
+
+    expect(process.env.STRIPE_SECRET_KEY).toBeDefined();
+    expect(process.env.STRIPE_WEBHOOK_SECRET).toBeDefined();
   });
-  
-  test("Better-Auth Polar plugin should be configured", () => {
-    if (process.env.CI) {
-      console.log("Skipping Polar environment test in CI environment");
-      return;
-    }
-    
-    process.env.POLAR_ENVIRONMENT = process.env.POLAR_ENVIRONMENT || "sandbox";
-    
-    expect(process.env.POLAR_ENVIRONMENT).toBeDefined();
+
+  test("Price IDs should be configurable", () => {
+    process.env.STRIPE_PRICE_ID_PRO =
+      process.env.STRIPE_PRICE_ID_PRO || "price_pro_mock";
+    process.env.STRIPE_PRICE_ID_PREMIUM =
+      process.env.STRIPE_PRICE_ID_PREMIUM || "price_premium_mock";
+
+    expect(process.env.STRIPE_PRICE_ID_PRO).toBeDefined();
+    expect(process.env.STRIPE_PRICE_ID_PREMIUM).toBeDefined();
   });
 });
 
 describe("Payment API Routes", () => {
-  const mockResponse = {
-    json: () => mockResponse,
-    status: () => mockResponse,
-    send: () => mockResponse,
-  };
-  
-  const mockRequest = {
-    headers: {
-      get: () => null,
-    },
-  };
-  
   test("customer-state API should return customer state for authenticated user", async () => {
-    const customerState = await mockServices.getCustomerState(mockUserId);
+    const customerState = await mockServices.getCustomerState(
+      mockUserId,
+      mockTenantId,
+    );
     expect(customerState).toBeDefined();
   });
-  
+
   test("subscriptions API should return user subscriptions", async () => {
-    const subscriptions = await mockServices.getUserSubscriptions(mockUserId);
+    const subscriptions = await mockServices.getUserSubscriptions(
+      mockUserId,
+      mockTenantId,
+    );
     expect(subscriptions.length).toBe(1);
+  });
+
+  test("checkout API should create session", async () => {
+    const session = await mockServices.createCheckoutSession(
+      mockCustomerId,
+      mockPriceId,
+    );
+    expect(session.url).toBeDefined();
+  });
+
+  test("portal API should create session", async () => {
+    const session =
+      await mockServices.createCustomerPortalSession(mockCustomerId);
+    expect(session.url).toBeDefined();
   });
 });

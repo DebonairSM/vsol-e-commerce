@@ -38,18 +38,35 @@ export function SignUpPageClient() {
     setError("");
     setLoading(true);
 
+    const trimmedName = formData.name.trim();
+    if (!trimmedName) {
+      setError("Name is required");
+      setLoading(false);
+      return;
+    }
+
     void signUp
       .email({
-        email: formData.email,
-        name: formData.name,
+        email: formData.email.trim(),
+        name: trimmedName,
         password: formData.password,
       })
       .then(() => {
         router.push("/auth/sign-in?registered=true");
       })
       .catch((err: unknown) => {
-        setError("Registration failed. Please try again.");
-        console.error(err);
+        let errorMessage = "Registration failed. Please try again.";
+        if (err && typeof err === "object") {
+          if ("message" in err && err.message) {
+            errorMessage = String(err.message);
+          } else if ("error" in err && err.error) {
+            errorMessage = String(err.error);
+          } else if ("status" in err && "statusText" in err) {
+            errorMessage = `${err.status}: ${err.statusText}`;
+          }
+        }
+        setError(errorMessage);
+        console.error("Sign up error:", err);
       })
       .finally(() => {
         setLoading(false);

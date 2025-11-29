@@ -10,3 +10,7 @@ export const tenantTable = pgTable("tenant", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+
+
+
+

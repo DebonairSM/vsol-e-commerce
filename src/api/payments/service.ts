@@ -1,49 +1,89 @@
-import { Polar } from "@polar-sh/sdk";
+import Stripe from "stripe";
 import { and, eq } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
 
 import { db } from "~/db";
-import { polarCustomerTable, polarSubscriptionTable } from "~/db/schema";
+import { stripeCustomerTable, stripeSubscriptionTable } from "~/db/schema";
 
-const polarClient = new Polar({
-  accessToken: process.env.POLAR_ACCESS_TOKEN,
-  server: (process.env.POLAR_ENVIRONMENT as "production" | "sandbox") || "production",
+export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
+  apiVersion: "2025-04-30.basil",
 });
 
+// map product slugs to stripe price ids from env
+export const PRICE_MAP: Record<string, string> = {
+  pro: process.env.STRIPE_PRICE_ID_PRO || "",
+  premium: process.env.STRIPE_PRICE_ID_PREMIUM || "",
+};
+
 /**
- * Get a Polar customer by user ID and tenant ID from the database
+ * get a stripe customer by user id and tenant id from the database
  */
-export async function getCustomerByUserId(
-  userId: string,
-  tenantId: string,
-) {
-  const customer = await db.query.polarCustomerTable.findFirst({
+export async function getCustomerByUserId(userId: string, tenantId: string) {
+  const customer = await db.query.stripeCustomerTable.findFirst({
     where: and(
-      eq(polarCustomerTable.userId, userId),
-      eq(polarCustomerTable.tenantId, tenantId),
+      eq(stripeCustomerTable.userId, userId),
+      eq(stripeCustomerTable.tenantId, tenantId),
     ),
   });
 
-  if (!customer) {
-    return null;
+  return customer ?? null;
+}
+
+/**
+ * get or create a stripe customer for a user/tenant
+ */
+export async function getOrCreateCustomer(
+  userId: string,
+  tenantId: string,
+  email: string,
+  name?: string,
+) {
+  const existing = await getCustomerByUserId(userId, tenantId);
+  if (existing) {
+    return existing;
   }
+
+  // create stripe customer
+  const stripeCustomer = await stripe.customers.create({
+    email,
+    name: name || email,
+    metadata: {
+      userId,
+      tenantId,
+    },
+  });
+
+  // save to database
+  const now = new Date();
+  const [customer] = await db
+    .insert(stripeCustomerTable)
+    .values({
+      id: uuidv4(),
+      userId,
+      tenantId,
+      customerId: stripeCustomer.id,
+      email,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .returning();
 
   return customer;
 }
 
 /**
- * Get customer state from Polar API
+ * get customer state from stripe api
  */
 export async function getCustomerState(userId: string, tenantId: string) {
   const customer = await getCustomerByUserId(userId, tenantId);
-  
+
   if (!customer) {
     return null;
   }
 
   try {
-    const customerState = await polarClient.customers.get({ id: customer.customerId });
-    return customerState;
+    const stripeCustomer = await stripe.customers.retrieve(customer.customerId);
+    return stripeCustomer;
   } catch (error) {
     console.error("Error fetching customer state:", error);
     return null;
@@ -51,13 +91,13 @@ export async function getCustomerState(userId: string, tenantId: string) {
 }
 
 /**
- * Get all subscriptions for a user within a tenant
+ * get all subscriptions for a user within a tenant
  */
 export async function getUserSubscriptions(userId: string, tenantId: string) {
-  const subscriptions = await db.query.polarSubscriptionTable.findMany({
+  const subscriptions = await db.query.stripeSubscriptionTable.findMany({
     where: and(
-      eq(polarSubscriptionTable.userId, userId),
-      eq(polarSubscriptionTable.tenantId, tenantId),
+      eq(stripeSubscriptionTable.userId, userId),
+      eq(stripeSubscriptionTable.tenantId, tenantId),
     ),
   });
 
@@ -65,106 +105,150 @@ export async function getUserSubscriptions(userId: string, tenantId: string) {
 }
 
 /**
- * Create a new customer in Polar and save reference in database
- */
-export async function createCustomer(
-  userId: string,
-  tenantId: string,
-  email: string,
-  name?: string,
-) {
-  try {
-    const customer = await polarClient.customers.create({
-      email,
-      name: name || email,
-      externalId: userId,
-    });
-
-    await db.insert(polarCustomerTable).values({
-      id: uuidv4(),
-      userId,
-      tenantId,
-      customerId: customer.id,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
-
-    return customer;
-  } catch (error) {
-    console.error("Error creating customer:", error);
-    throw error;
-  }
-}
-
-/**
- * Sync subscription data between Polar and our database
+ * sync subscription data from stripe to our database
  */
 export async function syncSubscription(
+  stripeSubscription: Stripe.Subscription,
   userId: string,
   tenantId: string,
-  customerId: string,
-  subscriptionId: string,
-  productId: string,
-  status: string,
 ) {
-  try {
-    const existingSubscription = await db.query.polarSubscriptionTable.findFirst({
-      where: eq(polarSubscriptionTable.subscriptionId, subscriptionId),
-    });
+  const subscriptionId = stripeSubscription.id;
+  const customerId = stripeSubscription.customer as string;
+  const priceId = stripeSubscription.items.data[0]?.price.id || "";
+  const productId =
+    (stripeSubscription.items.data[0]?.price.product as string) || "";
+  const status = stripeSubscription.status;
+  const cancelAtPeriodEnd = stripeSubscription.cancel_at_period_end;
+  const currentPeriodStart = new Date(
+    stripeSubscription.current_period_start * 1000,
+  );
+  const currentPeriodEnd = new Date(
+    stripeSubscription.current_period_end * 1000,
+  );
+  const cancelAt = stripeSubscription.cancel_at
+    ? new Date(stripeSubscription.cancel_at * 1000)
+    : null;
+  const canceledAt = stripeSubscription.canceled_at
+    ? new Date(stripeSubscription.canceled_at * 1000)
+    : null;
 
-    if (existingSubscription) {
-      await db
-        .update(polarSubscriptionTable)
-        .set({
-          status,
-          updatedAt: new Date(),
-        })
-        .where(eq(polarSubscriptionTable.subscriptionId, subscriptionId));
-      return existingSubscription;
-    }
+  const now = new Date();
 
-    const subscription = await db.insert(polarSubscriptionTable).values({
+  const existing = await db.query.stripeSubscriptionTable.findFirst({
+    where: eq(stripeSubscriptionTable.subscriptionId, subscriptionId),
+  });
+
+  if (existing) {
+    await db
+      .update(stripeSubscriptionTable)
+      .set({
+        status,
+        priceId,
+        productId,
+        cancelAtPeriodEnd,
+        currentPeriodStart,
+        currentPeriodEnd,
+        cancelAt,
+        canceledAt,
+        updatedAt: now,
+      })
+      .where(eq(stripeSubscriptionTable.subscriptionId, subscriptionId));
+
+    return { ...existing, status, updatedAt: now };
+  }
+
+  const [subscription] = await db
+    .insert(stripeSubscriptionTable)
+    .values({
       id: uuidv4(),
       userId,
       tenantId,
       customerId,
       subscriptionId,
+      priceId,
       productId,
       status,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
+      cancelAtPeriodEnd,
+      currentPeriodStart,
+      currentPeriodEnd,
+      cancelAt,
+      canceledAt,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .returning();
 
-    return subscription;
-  } catch (error) {
-    console.error("Error syncing subscription:", error);
-    throw error;
-  }
+  return subscription;
 }
 
 /**
- * Check if a user has an active subscription within a tenant
+ * check if a user has an active subscription within a tenant
  */
 export async function hasActiveSubscription(
   userId: string,
   tenantId: string,
 ): Promise<boolean> {
   const subscriptions = await getUserSubscriptions(userId, tenantId);
-  return subscriptions.some((sub) => sub.status === "active");
+  return subscriptions.some(
+    (sub) => sub.status === "active" || sub.status === "trialing",
+  );
 }
 
 /**
- * Get checkout URL for a specific product
+ * create a stripe checkout session
  */
-export async function getCheckoutUrl(customerId: string, productSlug: string): Promise<string | null> {
-  try {
-    const checkout = await polarClient.checkouts.create({
-      customerId,
-      products: [productSlug],
-    });
-    return checkout.url;
-  } catch (error) {
-    console.error("Error generating checkout URL:", error);
-    return null;
-  }
+export async function createCheckoutSession(
+  customerId: string,
+  priceId: string,
+  successUrl: string,
+  cancelUrl: string,
+): Promise<Stripe.Checkout.Session> {
+  const session = await stripe.checkout.sessions.create({
+    customer: customerId,
+    mode: "subscription",
+    payment_method_types: ["card"],
+    line_items: [
+      {
+        price: priceId,
+        quantity: 1,
+      },
+    ],
+    success_url: successUrl,
+    cancel_url: cancelUrl,
+  });
+
+  return session;
+}
+
+/**
+ * create a stripe customer portal session
+ */
+export async function createCustomerPortalSession(
+  customerId: string,
+  returnUrl: string,
+): Promise<Stripe.BillingPortal.Session> {
+  const session = await stripe.billingPortal.sessions.create({
+    customer: customerId,
+    return_url: returnUrl,
+  });
+
+  return session;
+}
+
+/**
+ * get price id for a product slug
+ */
+export function getPriceIdForSlug(slug: string): string | null {
+  return PRICE_MAP[slug] || null;
+}
+
+/**
+ * look up local customer by stripe customer id
+ */
+export async function getCustomerByStripeId(stripeCustomerId: string) {
+  const customer = await db.query.stripeCustomerTable.findFirst({
+    where: eq(stripeCustomerTable.customerId, stripeCustomerId),
+  });
+
+  return customer ?? null;
 }

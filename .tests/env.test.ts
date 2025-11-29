@@ -36,14 +36,8 @@ test("all required environment variables are defined based on .env.example", asy
     );
   }
 
-  const polarVars = ["POLAR_ACCESS_TOKEN", "POLAR_WEBHOOK_SECRET", "POLAR_ENVIRONMENT"];
-  
   const missingVars: string[] = [];
   for (const varName of expectedEnvVars) {
-    if (polarVars.includes(varName)) {
-      continue;
-    }
-    
     if (!(varName in process.env) || !process.env[varName]) {
       missingVars.push(varName);
     }
