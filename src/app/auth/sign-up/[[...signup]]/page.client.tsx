@@ -45,6 +45,12 @@ export function SignUpPageClient() {
       return;
     }
 
+    if (formData.password.length < 8) {
+      setError("Password must be at least 8 characters long");
+      setLoading(false);
+      return;
+    }
+
     void signUp
       .email({
         email: formData.email.trim(),
@@ -187,6 +193,9 @@ export function SignUpPageClient() {
                     type="password"
                     value={formData.password}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Password must be at least 8 characters long
+                  </p>
                 </div>
                 {error && (
                   <div className="text-sm font-medium text-destructive">
